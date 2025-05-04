@@ -1,4 +1,5 @@
 #include "tetris.h"
+
 #include <ncurses.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -7,21 +8,6 @@
 // Number of rotations per tetromino type (I, L, O, T, S, Z, J).
 static const int kRotationsPerTetromino[] = {2, 4, 1, 4, 2, 2, 4};
 static GameState game_state = {0};
-
-// Debug: Печать занятых клеток поля
-void debug_field(GameInfo *game_info, int start_y, int end_y) {
-  int line = 18;
-  for (int i = start_y; i <= end_y && i < kRow; ++i) {
-    for (int j = 0; j < kCol; ++j) {
-      if (game_info->field[i][j]) {
-        mvprintw(line++, kCol + 2, "Field[%d][%d]=%d", i, j, game_info->field[i][j]);
-        FILE *log = fopen("tetris.log", "a");
-        fprintf(log, "Field[%d][%d]=%d\n", i, j, game_info->field[i][j]);
-        fclose(log);
-      }
-    }
-  }
-}
 
 // Allocates a matrix of given dimensions.
 int **alloc_matrix(int rows, int cols) {
@@ -49,11 +35,12 @@ void free_matrix(int **matrix, int rows) {
 }
 
 // Spawns a new tetromino on the field.
-CurrentFigurePoints figure_spawn(GameInfo *game_info, int figure_x, int figure_y,
-                                int figure_type, int rotation_idx) {
+CurrentFigurePoints figure_spawn(GameInfo *game_info, int figure_x,
+                                 int figure_y, int figure_type,
+                                 int rotation_idx) {
   CurrentFigurePoints figure = {0};
   int count = 0;
-  const int (*tetromino)[kFigureSize] = kTetrominoes[figure_type][rotation_idx];
+  const int(*tetromino)[kFigureSize] = kTetrominoes[figure_type][rotation_idx];
   for (int i = 0; i < kFigureSize && count < kFigurePoints; ++i) {
     for (int j = 0; j < kFigureSize && count < kFigurePoints; ++j) {
       if (tetromino[i][j]) {
@@ -69,18 +56,17 @@ CurrentFigurePoints figure_spawn(GameInfo *game_info, int figure_x, int figure_y
     }
   }
   if (count != kFigurePoints) {
-    //mvprintw(16, kCol + 2, "Spawn Error: Only %d points", count);
     for (; count < kFigurePoints; ++count) {
       figure.figure_points[count].point_x = -1;
       figure.figure_points[count].point_y = -1;
     }
   }
-  //debug_field(game_info, 0, 5);
   return figure;
 }
 
 // Generates a new tetromino for the next slot.
-void next_figure_generate(GameInfo *game_info, int *figure_type, int *rotation_idx) {
+void next_figure_generate(GameInfo *game_info, int *figure_type,
+                          int *rotation_idx) {
   *figure_type = rand() % (sizeof(kTetrominoes) / sizeof(kTetrominoes[0]));
   *rotation_idx = 0;
   for (int i = 0; i < kFigureSize; ++i) {
@@ -120,8 +106,11 @@ void print_field(const GameInfo game_info) {
     }
   }
   mvprintw(6, kCol + 3, "Level: %d", game_info.level);
-  mvprintw(7, kCol + 3, "Speed: %d", game_info.speed);
-  mvprintw(8, kCol + 3, "Score: %d", game_info.score);
+  mvprintw(7, kCol + 3, "Score: %d", game_info.score);
+  mvprintw(8, kCol + 3, "High Score: %d", game_info.high_score);
+  if (game_info.pause) {
+    mvprintw(kRow / 2, kCol / 2 - 3, "PAUSED");
+  }
   refresh();
 }
 
@@ -135,21 +124,13 @@ void start_fsm(GameInfo *game_info) {
   game_info->speed = kSpeed;
   game_info->pause = 0;
 
-  // // Debug: Проверяем инициализацию
-  // bool field_empty = true;
-  // for (int i = 0; i < kRow && field_empty; ++i) {
-  //   for (int j = 0; j < kCol; ++j) {
-  //     if (game_info->field[i][j]) {
-  //       mvprintw(18, kCol + 2, "Field init error: [%d][%d]=%d", i, j, game_info->field[i][j]);
-  //       field_empty = false;
-  //       break;
-  //     }
-  //   }
-  // }
-  // if (field_empty) {
-  //   mvprintw(18, kCol + 2, "Field initialized empty");
-  // }
-  // refresh();
+  FILE *file = fopen("high_score.txt", "r");
+  if (file) {
+    fscanf(file, "%d", &game_info->high_score);
+    fclose(file);
+  } else {
+    game_info->high_score = 0;
+  }
 }
 
 // Handles the spawning of a new tetromino.
@@ -159,14 +140,16 @@ void spawn_fsm(GameInfo *game_info, CurrentFigurePoints *current_figure,
   *figure_y = 0;
 
   if (!next_check(game_info)) {
-    next_figure_generate(game_info, &game_state.next_figure_type, &game_state.rotation_idx);
+    next_figure_generate(game_info, &game_state.next_figure_type,
+                         &game_state.rotation_idx);
   }
 
   game_state.figure_type = game_state.next_figure_type;
   game_state.rotation_idx = 0;
 
   bool collision = false;
-  const int (*tetromino)[kFigureSize] = kTetrominoes[game_state.figure_type][game_state.rotation_idx];
+  const int(*tetromino)[kFigureSize] =
+      kTetrominoes[game_state.figure_type][game_state.rotation_idx];
   for (int i = 0; i < kFigureSize && !collision; ++i) {
     for (int j = 0; j < kFigureSize && !collision; ++j) {
       if (tetromino[i][j]) {
@@ -177,125 +160,88 @@ void spawn_fsm(GameInfo *game_info, CurrentFigurePoints *current_figure,
             *state = GAME_OVER;
             game_over_fsm(game_info);
             collision = true;
-            // mvprintw(15, kCol + 2, "Spawn Collision at (%d,%d)", new_x, new_y);
-            // refresh();
           }
         }
       }
     }
   }
   if (!collision) {
-    *current_figure = figure_spawn(game_info, *figure_x, *figure_y,
-                                  game_state.figure_type, game_state.rotation_idx);
-    next_figure_generate(game_info, &game_state.next_figure_type, &game_state.rotation_idx);
+    *current_figure =
+        figure_spawn(game_info, *figure_x, *figure_y, game_state.figure_type,
+                     game_state.rotation_idx);
+    next_figure_generate(game_info, &game_state.next_figure_type,
+                         &game_state.rotation_idx);
     *state = FALLING;
   }
-
-  // mvprintw(10, kCol + 2, "Spawn: Type=%d, Next=%d, Rot=%d, Pos=(%d,%d)",
-  //          game_state.figure_type, game_state.next_figure_type, game_state.rotation_idx,
-  //          *figure_x, *figure_y);
-  // for (int i = 0; i < kFigurePoints; ++i) {
-  //   mvprintw(11 + i, kCol + 2, "Point %d: (%d,%d)", i,
-  //            current_figure->figure_points[i].point_x,
-  //            current_figure->figure_points[i].point_y);
-  // }
-  // refresh();
 }
 
 // Rotates the current tetromino clockwise.
-bool rotate_figure(GameInfo *game_info, CurrentFigurePoints *current_figure) {
+void rotate_figure(GameInfo *game_info, CurrentFigurePoints *current_figure) {
   int figure_type = game_state.figure_type;
   int current_rotation = game_state.rotation_idx;
   int num_rotations = kRotationsPerTetromino[figure_type];
 
-  if (num_rotations == 1) {
-    //mvprintw(0, kCol + 2, "O-shape: No rotation");
-    //refresh();
-    return true;
-  }
+  if (num_rotations > 1) {
+    int next_rotation = (current_rotation + 1) % num_rotations;
+    const int(*tetromino)[kFigureSize] =
+        kTetrominoes[figure_type][next_rotation];
+    int offsets[7][2] = {{0, 0},  {1, 0}, {-1, 0}, {0, 1},
+                         {0, -1}, {2, 0}, {-2, 0}};
+    int num_offsets = (figure_type == 0) ? 7 : 5;
 
-  int next_rotation = (current_rotation + 1) % num_rotations;
-  const int (*tetromino)[kFigureSize] = kTetrominoes[figure_type][next_rotation];
-  int offsets[7][2] = {{0, 0}, {1, 0}, {-1, 0}, {0, 1}, {0, -1}, {2, 0}, {-2, 0}};
-  int num_offsets = (figure_type == 0) ? 7 : 5;
-
-  for (int i = 0; i < kFigurePoints; ++i) {
-    int x = current_figure->figure_points[i].point_x;
-    int y = current_figure->figure_points[i].point_y;
-    if (x >= 0 && x < kCol && y >= 0 && y < kRow) {
-      game_info->field[y][x] = 0;
-    }
-  }
-
-  // mvprintw(0, kCol + 2, "Try rotate: Type=%d, Rot=%d", figure_type, next_rotation);
-  // mvprintw(1, kCol + 2, "Pos: (%d, %d)", game_state.figure_x, game_state.figure_y);
-  // for (int i = 0; i < kFigurePoints; ++i) {
-  //   mvprintw(2 + i, kCol + 2, "Point %d: (%d, %d)", i,
-  //            current_figure->figure_points[i].point_x,
-  //            current_figure->figure_points[i].point_y);
-  // }
-
-  for (int k = 0; k < num_offsets; ++k) {
-    int offset_x = offsets[k][0];
-    int offset_y = offsets[k][1];
-    int new_figure_x = game_state.figure_x + offset_x;
-    int new_figure_y = game_state.figure_y + offset_y;
-
-    bool valid = true;
-    //int fail_x = -1, fail_y = -1;
-    //bool is_collision = false;
-    for (int i = 0; i < kFigureSize && valid; ++i) {
-      for (int j = 0; j < kFigureSize && valid; ++j) {
-        if (tetromino[i][j]) {
-          int new_x = j + new_figure_x;
-          int new_y = i + new_figure_y;
-          if (new_x < 0 || new_x >= kCol || new_y < 0 || new_y >= kRow) {
-            valid = false;
-            // fail_x = new_x;
-            // fail_y = new_y;
-          } else if (game_info->field[new_y][new_x]) {
-            valid = false;
-            // fail_x = new_x;
-            // fail_y = new_y;
-            //is_collision = true;
-          }
-        }
+    // Очистка текущей фигуры
+    for (int i = 0; i < kFigurePoints; ++i) {
+      int x = current_figure->figure_points[i].point_x;
+      int y = current_figure->figure_points[i].point_y;
+      if (x >= 0 && x < kCol && y >= 0 && y < kRow) {
+        game_info->field[y][x] = 0;
       }
     }
 
-    if (valid) {
-      game_state.rotation_idx = next_rotation;
-      game_state.figure_x = new_figure_x;
-      game_state.figure_y = new_figure_y;
-      *current_figure = figure_spawn(game_info, new_figure_x, new_figure_y,
-                                    figure_type, next_rotation);
-      // mvprintw(0, kCol + 2, "Rotated: Type=%d, Rot=%d", figure_type, next_rotation);
-      // mvprintw(1, kCol + 2, "Pos: (%d, %d), Offset: (%d, %d)", new_figure_x, new_figure_y, offset_x, offset_y);
-      // for (int i = 0; i < kFigurePoints; ++i) {
-      //   mvprintw(2 + i, kCol + 2, "Point %d: (%d, %d)", i,
-      //            current_figure->figure_points[i].point_x,
-      //            current_figure->figure_points[i].point_y);
-      // }
-      // refresh();
-      return true;
+    bool rotated = false;
+    for (int k = 0; k < num_offsets; ++k) {
+      int offset_x = offsets[k][0];
+      int offset_y = offsets[k][1];
+      int new_figure_x = game_state.figure_x + offset_x;
+      int new_figure_y = game_state.figure_y + offset_y;
+
+      bool valid = true;
+      for (int i = 0; i < kFigureSize && valid; ++i) {
+        for (int j = 0; j < kFigureSize && valid; ++j) {
+          if (tetromino[i][j]) {
+            int new_x = j + new_figure_x;
+            int new_y = i + new_figure_y;
+            if (new_x < 0 || new_x >= kCol || new_y < 0 || new_y >= kRow) {
+              valid = false;
+            } else if (game_info->field[new_y][new_x]) {
+              valid = false;
+            }
+          }
+        }
+      }
+
+      if (valid) {
+        game_state.rotation_idx = next_rotation;
+        game_state.figure_x = new_figure_x;
+        game_state.figure_y = new_figure_y;
+        *current_figure = figure_spawn(game_info, new_figure_x, new_figure_y,
+                                       figure_type, next_rotation);
+        rotated = true;
+        break;  // Прерываем цикл после успешного поворота
+      }
     }
 
-    // mvprintw(6 + k, kCol + 2, "Offset (%d, %d): %s at (%d, %d)",
-    //          offset_x, offset_y, is_collision ? "Collision" : "Out of bounds", fail_x, fail_y);
-  }
-
-  for (int i = 0; i < kFigurePoints; ++i) {
-    int x = current_figure->figure_points[i].point_x;
-    int y = current_figure->figure_points[i].point_y;
-    if (x >= 0 && x < kCol && y >= 0 && y < kRow) {
-      game_info->field[y][x] = 1;
+    // Восстанавливаем фигуру только если поворот не удался
+    if (!rotated) {
+      for (int i = 0; i < kFigurePoints; ++i) {
+        int x = current_figure->figure_points[i].point_x;
+        int y = current_figure->figure_points[i].point_y;
+        if (x >= 0 && x < kCol && y >= 0 && y < kRow) {
+          game_info->field[y][x] = 1;
+        }
+      }
     }
   }
-
-  // mvprintw(0, kCol + 2, "Rotation failed: Type=%d, Rot=%d", figure_type, next_rotation);
-  // mvprintw(1, kCol + 2, "Pos: (%d, %d)", game_state.figure_x, game_state.figure_y);
-  // refresh();
-  return false;
 }
 
 // Handles the falling of the current tetromino.
@@ -342,7 +288,8 @@ void falling_fsm(GameInfo *game_info, CurrentFigurePoints *current_figure,
     // Синхронизация figure_y с минимальным y точек
     int min_y = kRow;
     for (int i = 0; i < kFigurePoints; ++i) {
-      if (current_figure->figure_points[i].point_y >= 0 && current_figure->figure_points[i].point_y < min_y) {
+      if (current_figure->figure_points[i].point_y >= 0 &&
+          current_figure->figure_points[i].point_y < min_y) {
         min_y = current_figure->figure_points[i].point_y;
       }
     }
@@ -355,9 +302,6 @@ void falling_fsm(GameInfo *game_info, CurrentFigurePoints *current_figure,
         game_info->field[y][x] = 1;
       }
     }
-    // Debug: Поле после шага
-    // mvprintw(17, kCol + 2, "Falling: Pos=(%d,%d)", game_state.figure_x, game_state.figure_y);
-    // debug_field(game_info, 0, 10);
   } else {
     *state = LOCKING;
   }
@@ -367,22 +311,15 @@ void falling_fsm(GameInfo *game_info, CurrentFigurePoints *current_figure,
 void moving_fsm(GameInfo *game_info, CurrentFigurePoints *current_figure,
                 FsmState *state, int *figure_x, UserAction direction) {
   bool can_move = true;
-  //int fail_x = -1, fail_y = -1;
   int delta_x = (direction == kLeft) ? -1 : 1;
-
-  // mvprintw(12, kCol + 2, "Move %s: figure_x=%d, figure_y=%d", direction == kLeft ? "Left" : "Right", *figure_x, game_state.figure_y);
-  // for (int i = 0; i < kFigurePoints; ++i) {
-  //   mvprintw(13 + i, kCol + 2, "Point %d: (%d,%d)", i,
-  //             current_figure->figure_points[i].point_x,
-  //             current_figure->figure_points[i].point_y);
-  // }
-  // debug_field(game_info, 0, 10);
 
   // Массивы для хранения минимальных/максимальных x для каждой y
   int extreme_x[kRow];
-  int points_per_y[kRow]; // Количество точек для каждой y
+  int points_per_y[kRow];  // Количество точек для каждой y
   for (int i = 0; i < kRow; ++i) {
-    extreme_x[i] = (direction == kLeft) ? kCol : -1; // Инициализация: max для kLeft, min для kRight
+    extreme_x[i] = (direction == kLeft)
+                       ? kCol
+                       : -1;  // Инициализация: max для kLeft, min для kRight
     points_per_y[i] = 0;
   }
 
@@ -393,30 +330,23 @@ void moving_fsm(GameInfo *game_info, CurrentFigurePoints *current_figure,
     if (y >= 0 && y < kRow) {
       points_per_y[y]++;
       if (direction == kLeft) {
-        if (x < extreme_x[y]) extreme_x[y] = x; // Минимальный x для kLeft
+        if (x < extreme_x[y]) extreme_x[y] = x;  // Минимальный x для kLeft
       } else {
-        if (x > extreme_x[y]) extreme_x[y] = x; // Максимальный x для kRight
+        if (x > extreme_x[y]) extreme_x[y] = x;  // Максимальный x для kRight
       }
     }
   }
 
   // Проверяем только крайние точки
   for (int y = 0; y < kRow && can_move; ++y) {
-    if (points_per_y[y] > 0) { // Проверяем только строки с точками
+    if (points_per_y[y] > 0) {  // Проверяем только строки с точками
       int x = extreme_x[y] + delta_x;
       if (y < 0 || y >= kRow) {
         can_move = false;
-        // fail_x = x;
-        // fail_y = y;
-        //mvprintw(17, kCol + 2, "Invalid y=%d", y);
       } else if (x < 0 || x >= kCol) {
         can_move = false;
-        // fail_x = x;
-        // fail_y = y;
       } else if (game_info->field[y][x]) {
         can_move = false;
-        // fail_x = x;
-        // fail_y = y;
       }
     }
   }
@@ -443,26 +373,74 @@ void moving_fsm(GameInfo *game_info, CurrentFigurePoints *current_figure,
     }
     *figure_x += delta_x;
     falling_fsm(game_info, current_figure, state);
-    // mvprintw(11, kCol + 2, "Move %s: Pos=(%d,%d)",
-    //          direction == kLeft ? "Left" : "Right", *figure_x, game_state.figure_y);
-  } 
-  // else {
-  //   mvprintw(11, kCol + 2, "Move %s Failed: %s at (%d,%d)",
-  //            direction == kLeft ? "Left" : "Right",
-  //            (fail_x < 0 || fail_x >= kCol) ? "Out of bounds" :
-  //            (fail_y < 0 || fail_y >= kRow) ? "Invalid y" : "Collision",
-  //            fail_x, fail_y);
-  //   if (!(fail_x < 0 || fail_x >= kCol) && !(fail_y < 0 || fail_y >= kRow)) {
-  //     mvprintw(17, kCol + 2, "Field[%d][%d]=%d", fail_y, fail_x, game_info->field[fail_y][fail_x]);
-  //   }
-  // }
-  // refresh();
+  }
   *state = FALLING;
+}
+
+void clearing_fsm(GameInfo *game_info, FsmState *state) {
+  int lines_cleared = 0;
+  for (int y = kRow - 1; y >= 0 && lines_cleared < 4; --y) {
+    bool line_full = true;
+    for (int x = 0; x < kCol; ++x) {
+      if (!game_info->field[y][x]) {
+        line_full = false;
+        break;
+      }
+    }
+    if (line_full) {
+      lines_cleared++;
+      for (int yy = y; yy > 0; --yy) {
+        for (int x = 0; x < kCol; ++x) {
+          game_info->field[yy][x] = game_info->field[yy - 1][x];
+        }
+      }
+      for (int x = 0; x < kCol; ++x) {
+        game_info->field[0][x] = 0;
+      }
+      y++;
+    }
+  }
+  if (lines_cleared > 0) {
+    int points = 0;
+    switch (lines_cleared) {
+      case 1:
+        points = 100;
+        break;
+      case 2:
+        points = 300;
+        break;
+      case 3:
+        points = 700;
+        break;
+      case 4:
+        points = 1500;
+        break;
+    }
+    game_info->score += points;
+    game_state.points_toward_level += points;
+    // Проверяем повышение уровня
+    while (game_state.points_toward_level >= 600 && game_info->level < 10) {
+      game_info->level++;
+      game_state.points_toward_level -= 600;
+      game_info->speed = kSpeed - (game_info->level - 1) * 100;
+      if (game_info->speed < 100) game_info->speed = 100;
+    }
+    // Обновляем high_score
+    if (game_info->score > game_info->high_score) {
+      game_info->high_score = game_info->score;
+    }
+  }
+  *state = SPAWN;
 }
 
 // Sets the game to the game-over state.
 void game_over_fsm(GameInfo *game_info) {
   game_info->pause = -1;
+  FILE *file = fopen("high_score.txt", "w");
+  if (file) {
+    fprintf(file, "%d", game_info->high_score);
+    fclose(file);
+  }
 }
 
 // Processes user input to control the game.
@@ -490,13 +468,13 @@ void user_input(UserAction action, bool hold) {
       if (!info->pause && game_state.state == FALLING) {
         game_state.move_direction = action;
         game_state.state = MOVING;
-
       }
       break;
     case kUp:
       break;
     case kDown:
-      if (!info->pause && (game_state.state == FALLING || game_state.state == MOVING)) {
+      if (!info->pause &&
+          (game_state.state == FALLING || game_state.state == MOVING)) {
         game_state.state = FALLING;
         if (hold) {
           falling_fsm(info, &game_state.current_figure, &game_state.state);
@@ -533,7 +511,10 @@ GameInfo update_current_state() {
                    &game_state.figure_x, game_state.move_direction);
         break;
       case LOCKING:
-        game_state.state = SPAWN;
+        game_state.state = CLEARING;
+        break;
+      case CLEARING:
+        clearing_fsm(info, &game_state.state);
         break;
       default:
         break;
@@ -554,7 +535,6 @@ int run_tetris() {
   user_input(kStart, false);
   while (true) {
     int ch = getch();
-    
     if (ch != ERR) {
       if (ch == 'q') {
         user_input(kTerminate, false);
@@ -578,13 +558,10 @@ int run_tetris() {
     print_field(state);
     napms(state.speed / 2);
   }
-
   free_matrix(game_state.game_info.field, kRow);
   free_matrix(game_state.game_info.next, kFigureSize);
   endwin();
   return 0;
 }
 
-int main() {
-  return run_tetris();
-}
+int main() { return run_tetris(); }
