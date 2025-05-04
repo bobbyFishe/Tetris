@@ -6,13 +6,13 @@
 #include <time.h>
 
 // Get number of rotations per tetromino type (I, L, O, T, S, Z, J).
-const int* get_rotations_per_tetromino() {
+const int *get_rotations_per_tetromino() {
   static const int rotations[] = {2, 4, 1, 4, 2, 2, 4};
   return rotations;
 }
 
 // Get the game state singleton.
-GameState* get_game_state() {
+GameState *get_game_state() {
   static GameState game_state = {0};
   return &game_state;
 }
@@ -175,9 +175,8 @@ void spawn_fsm(GameInfo *game_info, CurrentFigurePoints *current_figure,
     }
   }
   if (!collision) {
-    *current_figure =
-        figure_spawn(game_info, *figure_x, *figure_y, gs->figure_type,
-                     gs->rotation_idx);
+    *current_figure = figure_spawn(game_info, *figure_x, *figure_y,
+                                   gs->figure_type, gs->rotation_idx);
     next_figure_generate(game_info, &gs->next_figure_type, &gs->rotation_idx);
     *state = FALLING;
   }
@@ -412,10 +411,18 @@ void clearing_fsm(GameInfo *game_info, FsmState *state) {
   if (lines_cleared > 0) {
     int points = 0;
     switch (lines_cleared) {
-      case 1: points = 100; break;
-      case 2: points = 300; break;
-      case 3: points = 700; break;
-      case 4: points = 1500; break;
+      case 1:
+        points = 100;
+        break;
+      case 2:
+        points = 300;
+        break;
+      case 3:
+        points = 700;
+        break;
+      case 4:
+        points = 1500;
+        break;
     }
     game_info->score += points;
     gs->points_toward_level += points;
@@ -480,8 +487,7 @@ void user_input(UserAction action, bool hold) {
     case kUp:
       break;
     case kDown:
-      if (!info->pause &&
-          (gs->state == FALLING || gs->state == MOVING)) {
+      if (!info->pause && (gs->state == FALLING || gs->state == MOVING)) {
         gs->state = FALLING;
         if (hold) {
           falling_fsm(info, &gs->current_figure, &gs->state);
@@ -508,15 +514,15 @@ GameInfo update_current_state() {
   if (!info->pause && gs->state != GAME_OVER) {
     switch (gs->state) {
       case SPAWN:
-        spawn_fsm(info, &gs->current_figure, &gs->figure_x,
-                  &gs->figure_y, &gs->state);
+        spawn_fsm(info, &gs->current_figure, &gs->figure_x, &gs->figure_y,
+                  &gs->state);
         break;
       case FALLING:
         falling_fsm(info, &gs->current_figure, &gs->state);
         break;
       case MOVING:
-        moving_fsm(info, &gs->current_figure, &gs->state,
-                   &gs->figure_x, gs->move_direction);
+        moving_fsm(info, &gs->current_figure, &gs->state, &gs->figure_x,
+                   gs->move_direction);
         break;
       case LOCKING:
         gs->state = CLEARING;
