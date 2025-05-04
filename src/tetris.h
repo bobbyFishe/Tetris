@@ -127,6 +127,10 @@ void user_input(UserAction action, bool hold);
 //   The current game state.
 GameInfo update_current_state();
 
+// Getters for internal game data
+const int* get_rotations_per_tetromino();
+GameState* get_game_state();
+
 int **alloc_matrix(int rows, int cols);
 void free_matrix(int **matrix, int rows);
 void rotate_figure(GameInfo *game_info, CurrentFigurePoints *current_figure);
