@@ -151,5 +151,5 @@ void user_input(UserAction action, bool hold);
 CurrentFigurePoints figure_spawn(GameInfo *game_info, int figure_x,
                                  int figure_y, int figure_type,
                                  int rotation_idx);
-
+void cleanup_game();
 #endif

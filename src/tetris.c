@@ -476,6 +476,7 @@ void user_input(UserAction action, bool hold) {
     case kTerminate:
       gs->state = GAME_OVER;
       game_over_fsm(info);
+      cleanup_game();
       break;
     case kLeft:
     case kRight:
@@ -537,11 +538,22 @@ GameInfo update_current_state() {
   return *info;
 }
 
+void cleanup_game() {
+  GameState *gs = get_game_state();
+  free_matrix(gs->game_info.field, kRow);
+  free_matrix(gs->game_info.next, kFigureSize);
+  gs->game_info.field = NULL;
+  gs->game_info.next = NULL;
+}
+
 // Initializes and runs the Tetris game.
 int run_tetris() {
-  GameState *gs = get_game_state();
   srand(time(NULL));
-  initscr();
+  WINDOW *scr = initscr();
+  if (!scr) {
+    fprintf(stderr, "Не удалось инициализировать ncurses\n");
+    return 1;
+  }
   keypad(stdscr, true);
   noecho();
   cbreak();
@@ -568,13 +580,10 @@ int run_tetris() {
 
     GameInfo state = update_current_state();
     if (state.pause == -1) break;
-
     clear();
     print_field(state);
     napms(state.speed / 2);
   }
-  free_matrix(gs->game_info.field, kRow);
-  free_matrix(gs->game_info.next, kFigureSize);
   endwin();
   return 0;
 }
