@@ -1,0 +1,29 @@
+{
+  ncurses_leak_strdup
+  Memcheck:Leak
+  fun:malloc
+  fun:strdup
+  ...
+  fun:initscr
+  fun:run_tetris
+  fun:main
+}
+{
+  ncurses_leak_tsearch
+  Memcheck:Leak
+  fun:malloc
+  fun:tsearch
+  ...
+  fun:initscr
+  fun:run_tetris
+  fun:main
+}
+{
+  ncurses_leak_calloc
+  Memcheck:Leak
+  fun:calloc
+  ...
+  fun:initscr
+  fun:run_tetris
+  fun:main
+}
