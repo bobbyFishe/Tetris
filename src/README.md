@@ -55,12 +55,11 @@ The program meets the assignment requirements:
 * Modular structure (library + interface).
 * High score persistence via file.
 
-## Finite State Machine Diagram
+### Finite State Machine Diagram
 
 The game logic is managed by a Finite State Machine (FSM) with the following states and transitions:
 
-
-
+```mermaid
 stateDiagram-v2
     [*] --> START
     START --> SPAWN : kStart
@@ -93,3 +92,4 @@ stateDiagram-v2
     PAUSED --> GAME_OVER : kTerminate
 
     GAME_OVER --> [*]
+```
