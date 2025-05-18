@@ -1,13 +1,19 @@
 CC = gcc
 CFLAGS = -Wall -Werror -Wextra -Ibrick_game/tetris -std=c11
+TEST_CFLAGS = $(CFLAGS) -fprofile-arcs -ftest-coverage
 LIBS = -lncurses
+TEST_LIBS = -lcheck -lm -lgcov -lsubunit
 PATH_BACK = brick_game/tetris
 PATH_FRONT = gui/cli
+PATH_TEST = tests
 PROGRAM = tetris
 VERSION = 1.0
+TEST = test_tetris
 
 SOURCES = $(PATH_BACK)/tetris.c $(PATH_FRONT)/main.c
 OBJECTS = $(SOURCES:.c=.o)
+TEST_SOURCES = $(PATH_TEST)/test_tetris.c
+TEST_OBJECTS = $(TEST_SOURCES:.c=.o)
 HEADERS = $(PATH_BACK)/tetris.h
 
 
@@ -20,7 +26,7 @@ $(PROGRAM): $(OBJECTS)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 style:
-	clang-format -style=Google -i $(SOURCES) $(HEADERS)
+	clang-format -style=Google -i $(SOURCES) $(HEADERS) $(TEST_SOURCES)
 
 install: $(SOURCES) $(HEADERS) 
 	$(CC) $(CFLAGS) -DINSTALL $(SOURCES) $(LIBS) -o $(PROGRAM)
@@ -43,5 +49,29 @@ dist:
 	tar -czf tetris-$(VERSION).tar.gz tetris-$(VERSION)
 	rm -rf tetris-$(VERSION)
 
+test: $(TEST)
+	rm -f *.gcda
+	./$(TEST)
+
+$(TEST): $(TEST_OBJECTS) $(PATH_BACK)/tetris_test.o 
+	$(CC) $(TEST_OBJECTS) $(PATH_BACK)/tetris_test.o $(LIBS) $(TEST_LIBS) -o $(TEST)
+
+$(PATH_TEST)/%.o: $(PATH_TEST)/%.c $(HEADERS)
+	$(CC) $(TEST_CFLAGS) -c $< -o $@
+
+$(PATH_BACK)/tetris_test.o: $(PATH_BACK)/tetris.c $(HEADERS)
+	$(CC) $(TEST_CFLAGS) -c $< -o $@
+
+gcov_report: test
+	lcov --capture --directory . --output-file coverage.info
+	lcov --extract coverage.info '*brick_game/tetris/tetris.c' -o coverage_tetris.info
+	lcov --remove coverage_tetris.info '*print_field*' -o coverage_tetris.info --ignore-errors unused
+	lcov --list coverage_tetris.info
+	genhtml coverage_tetris.info --output-directory coverage_report
+	xdg-open coverage_report/index.html
+	rm -f coverage.info coverage_tetris.info
 clean:
 	rm -f $(PROGRAM) $(OBJECTS) brick_game/tetris/high_score.txt documentation.pdf tetris-1.0.tar.gz
+	rm -f $(PATH_TEST)/*.gcno $(PATH_TEST)/*.gcda $(PATH_TEST)/*.gcov $(PATH_TEST)/*.o *.info test_tetris
+	rm -f $(PATH_BACK)/*.gcno $(PATH_BACK)/*.gcda $(PATH_BACK)/*.gcov $(PATH_BACK)/*.o 
+	rm -rf coverage_report
