@@ -293,8 +293,8 @@ START_TEST(testUserInputMovement) {
       info->field[i][j] = 0;  // Clear field
     }
   }
-  userInput(kActionStart, false);                        // kStart -> kSpawn
-  updateCurrentState();                                  // kSpawn -> kFalling
+  userInput(kActionStart, false);  // kStart -> kSpawn
+  updateCurrentState();            // kSpawn -> kFalling
   gs->currentTetromino = spawnTetromino(info, 4, 0, 0, 0);  // I-tetromino
   gs->tetrominoX = 4;
   gs->tetrominoY = 0;
