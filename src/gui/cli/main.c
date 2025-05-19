@@ -1,10 +1,14 @@
 #include "tetris.h"
 
-int run_tetris() {
+/**
+ * Initializes and runs the Tetris game with ncurses.
+ * @return 0 on successful termination, non-zero on error.
+ */
+int runTetris() {
   srand(time(NULL));
-  WINDOW *scr = initscr();
+  WINDOW* scr = initscr();
   if (!scr) {
-    fprintf(stderr, "Не удалось инициализировать ncurses\n");
+    fprintf(stderr, "Failed to initialize ncurses\n");
     return 1;
   }
   keypad(stdscr, true);
@@ -12,33 +16,46 @@ int run_tetris() {
   cbreak();
   nodelay(stdscr, true);
   curs_set(0);
-  user_input(kStart, false);
+  userInput(kActionStart, false);
   while (true) {
     int ch = getch();
     if (ch != ERR) {
-      if (ch == 'q') {
-        user_input(kTerminate, false);
-      } else if (ch == 'p') {
-        user_input(kPause, false);
-      } else if (ch == KEY_LEFT) {
-        user_input(kLeft, false);
-      } else if (ch == KEY_RIGHT) {
-        user_input(kRight, false);
-      } else if (ch == KEY_DOWN) {
-        user_input(kDown, false);
-      } else if (ch == ' ') {
-        user_input(kAction, false);
+      switch (ch) {
+        case 'q':
+          userInput(kActionTerminate, false);
+          break;
+        case 'p':
+          userInput(kActionPause, false);
+          break;
+        case KEY_LEFT:
+          userInput(kActionLeft, false);
+          break;
+        case KEY_RIGHT:
+          userInput(kActionRight, false);
+          break;
+        case KEY_DOWN:
+          userInput(kActionDown, false);
+          break;
+        case ' ':
+          userInput(kActionRotate, false);
+          break;
       }
     }
 
-    GameInfo state = update_current_state();
-    if (state.pause == -1) break;
+    GameInfo state = updateCurrentState();
+    if (state.pause && state.pause == true && state.score == 0) {
+      break;  // Exit on game over (pause set to true in gameOverState).
+    }
     clear();
-    print_field(state);
+    renderField(state);
     napms(state.speed / 2);
   }
   endwin();
   return 0;
 }
 
-int main() { return run_tetris(); }
+/**
+ * Entry point for the Tetris game.
+ * @return 0 on successful termination, non-zero on error.
+ */
+int main() { return runTetris(); }

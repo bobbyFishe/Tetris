@@ -65,7 +65,7 @@ $(PATH_BACK)/tetris_test.o: $(PATH_BACK)/tetris.c $(HEADERS)
 gcov_report: test
 	lcov --capture --directory . --output-file coverage.info
 	lcov --extract coverage.info '*brick_game/tetris/tetris.c' -o coverage_tetris.info
-	lcov --remove coverage_tetris.info '*print_field*' -o coverage_tetris.info --ignore-errors unused
+	lcov --remove coverage_tetris.info '*renderField*' -o coverage_tetris.info --ignore-errors unused
 	lcov --list coverage_tetris.info
 	genhtml coverage_tetris.info --output-directory coverage_report
 	xdg-open coverage_report/index.html

@@ -3,390 +3,488 @@
 
 #include "../brick_game/tetris/tetris.h"
 
-// Helper function to initialize game state
-GameState *init_game_state() {
-  GameState *gs = get_game_state();
-  gs->game_info.field = alloc_matrix(kRow, kCol);
-  gs->game_info.next = alloc_matrix(kFigureSize, kFigureSize);
-  gs->game_info.score = 0;
-  gs->game_info.high_score = 0;
-  gs->game_info.level = 1;
-  gs->game_info.speed = kSpeed;
-  gs->game_info.pause = 0;
-  gs->points_toward_level = 0;
-  gs->state = START;
+/**
+ * Initializes the game state for testing.
+ * @return Pointer to the initialized GameState.
+ */
+GameState* initGameState() {
+  GameState* gs = getGameState();
+  gs->gameInfo.field = allocMatrix(kRow, kCol);
+  gs->gameInfo.next = allocMatrix(kFigureSize, kFigureSize);
+  gs->gameInfo.score = 0;
+  gs->gameInfo.high_score = 0;
+  gs->gameInfo.level = 1;
+  gs->gameInfo.speed = kSpeed;
+  gs->gameInfo.pause = false;
+  gs->pointsTowardLevel = 0;
+  gs->state = kStart;
   return gs;
 }
 
-// Clean up high_score.txt before each test
+/**
+ * Cleans up the high score file before each test.
+ */
 void setup(void) { remove("brick_game/tetris/high_score.txt"); }
 
-// Test matrix allocation
-START_TEST(test_alloc_matrix) {
+/**
+ * Tests the allocation of a matrix.
+ */
+START_TEST(testAllocMatrix) {
   int rows = 5, cols = 5;
-  int **matrix = alloc_matrix(rows, cols);
+  int** matrix = allocMatrix(rows, cols);
   ck_assert_ptr_nonnull(matrix);
-  for (int i = 0; i < rows; i++) {
+  for (int i = 0; i < rows; ++i) {
     ck_assert_ptr_nonnull(matrix[i]);
-    for (int j = 0; j < cols; j++) {
+    for (int j = 0; j < cols; ++j) {
       ck_assert_int_eq(matrix[i][j], 0);
     }
   }
-  free_matrix(matrix, rows);
+  freeMatrix(matrix, rows);
 }
 END_TEST
 
-// Test matrix deallocation
-START_TEST(test_free_matrix) {
+/**
+ * Tests the deallocation of a matrix.
+ */
+START_TEST(testFreeMatrix) {
   int rows = 5, cols = 5;
-  int **matrix = alloc_matrix(rows, cols);
-  free_matrix(matrix, rows);
-  ck_assert(true);
+  int** matrix = allocMatrix(rows, cols);
+  freeMatrix(matrix, rows);
+  ck_assert(true);  // No crash indicates success.
 }
 END_TEST
 
-// Test figure spawn
-START_TEST(test_figure_spawn) {
-  GameState *gs = init_game_state();
-  GameInfo *info = &gs->game_info;
-  CurrentFigurePoints figure = figure_spawn(info, 3, 0, 0, 0);  // I-tetromino
+/**
+ * Tests spawning an I-tetromino.
+ */
+START_TEST(testSpawnTetromino) {
+  GameState* gs = initGameState();
+  GameInfo* info = &gs->gameInfo;
+  ck_assert_ptr_nonnull(info->field);
+  ck_assert_ptr_nonnull(info->next);
+  TetrominoPoints tetromino = spawnTetromino(info, 3, 0, 0, 0);  // I-tetromino
   int count = 0;
-  for (int i = 0; i < kFigurePoints; i++) {
-    if (figure.figure_points[i].point_x >= 0) count++;
+  for (int i = 0; i < kFigurePoints; ++i) {
+    if (tetromino.points[i].x >= 0) ++count;
   }
   ck_assert_int_eq(count, kFigurePoints);
   ck_assert_int_eq(info->field[1][3], 1);
   ck_assert_int_eq(info->field[1][4], 1);
   ck_assert_int_eq(info->field[1][5], 1);
   ck_assert_int_eq(info->field[1][6], 1);
-  free_matrix(info->field, kRow);
-  free_matrix(info->next, kFigureSize);
+  freeMatrix(info->field, kRow);
+  freeMatrix(info->next, kFigureSize);
 }
 END_TEST
 
-// Test next figure generation
-START_TEST(test_next_figure_generate) {
-  GameState *gs = init_game_state();
-  GameInfo *info = &gs->game_info;
-  int figure_type, rotation_idx;
-  next_figure_generate(info, &figure_type, &rotation_idx);
-  ck_assert_int_ge(figure_type, 0);
-  ck_assert_int_lt(figure_type, 7);
-  ck_assert_int_eq(rotation_idx, 0);
-  ck_assert_int_eq(next_check(info), 1);
-  free_matrix(info->field, kRow);
-  free_matrix(info->next, kFigureSize);
+/**
+ * Tests generating the next tetromino.
+ */
+START_TEST(testGenerateNextTetromino) {
+  GameState* gs = initGameState();
+  GameInfo* info = &gs->gameInfo;
+  ck_assert_ptr_nonnull(info->field);
+  ck_assert_ptr_nonnull(info->next);
+  int tetrominoType, rotationIndex;
+  generateNextTetromino(info, &tetrominoType, &rotationIndex);
+  ck_assert_int_ge(tetrominoType, 0);
+  ck_assert_int_lt(tetrominoType, 7);
+  ck_assert_int_eq(rotationIndex, 0);
+  ck_assert(hasNextTetromino(info));
+  freeMatrix(info->field, kRow);
+  freeMatrix(info->next, kFigureSize);
 }
 END_TEST
 
-// Test next check
-START_TEST(test_next_check) {
-  GameState *gs = init_game_state();
-  GameInfo *info = &gs->game_info;
-  ck_assert_int_eq(next_check(info), 0);  // Empty next
-  int figure_type, rotation_idx;
-  next_figure_generate(info, &figure_type, &rotation_idx);
-  ck_assert_int_eq(next_check(info), 1);  // Non-empty next
-  free_matrix(info->field, kRow);
-  free_matrix(info->next, kFigureSize);
+/**
+ * Tests checking the existence of the next tetromino.
+ */
+START_TEST(testHasNextTetromino) {
+  GameState* gs = initGameState();
+  GameInfo* info = &gs->gameInfo;
+  ck_assert_ptr_nonnull(info->field);
+  ck_assert_ptr_nonnull(info->next);
+  ck_assert(!hasNextTetromino(info));  // Empty next
+  int tetrominoType, rotationIndex;
+  generateNextTetromino(info, &tetrominoType, &rotationIndex);
+  ck_assert(hasNextTetromino(info));  // Non-empty next
+  freeMatrix(info->field, kRow);
+  freeMatrix(info->next, kFigureSize);
 }
 END_TEST
 
-// Test start FSM
-START_TEST(test_start_fsm) {
-  GameState *gs = init_game_state();
-  GameInfo *info = &gs->game_info;
-  start_fsm(info);
+/**
+ * Tests the start state of the finite state machine.
+ */
+START_TEST(testStartFsm) {
+  GameState* gs = initGameState();
+  GameInfo* info = &gs->gameInfo;
+  ck_assert_ptr_nonnull(info->field);
+  ck_assert_ptr_nonnull(info->next);
+  startGame(info);
   ck_assert_ptr_nonnull(info->field);
   ck_assert_ptr_nonnull(info->next);
   ck_assert_int_eq(info->score, 0);
   ck_assert_int_eq(info->level, 1);
   ck_assert_int_eq(info->speed, kSpeed);
-  ck_assert_int_eq(info->pause, 0);
-  free_matrix(info->field, kRow);
-  free_matrix(info->next, kFigureSize);
+  ck_assert(!info->pause);
+  freeMatrix(info->field, kRow);
+  freeMatrix(info->next, kFigureSize);
 }
 END_TEST
 
-// Test spawn FSM
-START_TEST(test_spawn_fsm) {
-  GameState *gs = init_game_state();
-  GameInfo *info = &gs->game_info;
-  CurrentFigurePoints figure;
-  int figure_x, figure_y;
-  FsmState state = SPAWN;
-  spawn_fsm(info, &figure, &figure_x, &figure_y, &state);
-  ck_assert_int_eq(state, FALLING);
-  ck_assert_int_eq(figure_x, kCol / 2 - kFigureSize / 2);
-  ck_assert_int_eq(figure_y, 0);
-  free_matrix(info->field, kRow);
-  free_matrix(info->next, kFigureSize);
+/**
+ * Tests the spawn state of the finite state machine.
+ */
+START_TEST(testSpawnFsm) {
+  GameState* gs = initGameState();
+  GameInfo* info = &gs->gameInfo;
+  ck_assert_ptr_nonnull(info->field);
+  ck_assert_ptr_nonnull(info->next);
+  TetrominoPoints tetromino;
+  int tetrominoX, tetrominoY;
+  FsmState state = kSpawn;
+  spawnTetrominoState(info, &tetromino, &tetrominoX, &tetrominoY, &state);
+  ck_assert_int_eq(state, kFalling);
+  ck_assert_int_eq(tetrominoX, kCol / 2 - kFigureSize / 2);
+  ck_assert_int_eq(tetrominoY, 0);
+  freeMatrix(info->field, kRow);
+  freeMatrix(info->next, kFigureSize);
 }
 END_TEST
 
-// Test falling FSM
-START_TEST(test_falling_fsm) {
-  GameState *gs = init_game_state();
-  GameInfo *info = &gs->game_info;
-  CurrentFigurePoints figure =
-      figure_spawn(info, 3, kRow - 2, 0, 0);  // I-tetromino near bottom
-  gs->current_figure = figure;
-  gs->figure_x = 3;
-  gs->figure_y = kRow - 2;
-  FsmState state = FALLING;
-  falling_fsm(info, &figure, &state);
-  ck_assert_int_eq(state, LOCKING);  // Should hit bottom
-  ck_assert_int_eq(figure.figure_points[0].point_y, kRow - 1);
-  free_matrix(info->field, kRow);
-  free_matrix(info->next, kFigureSize);
+/**
+ * Tests the falling state of the finite state machine.
+ */
+START_TEST(testFallingFsm) {
+  GameState* gs = initGameState();
+  GameInfo* info = &gs->gameInfo;
+  ck_assert_ptr_nonnull(info->field);
+  ck_assert_ptr_nonnull(info->next);
+  TetrominoPoints tetromino =
+      spawnTetromino(info, 3, kRow - 2, 0, 0);  // I-tetromino near bottom
+  gs->currentTetromino = tetromino;
+  gs->tetrominoX = 3;
+  gs->tetrominoY = kRow - 2;
+  FsmState state = kFalling;
+  fallingTetrominoState(info, &tetromino, &state);
+  ck_assert_int_eq(state, kLocking);  // Hits bottom
+  ck_assert_int_eq(tetromino.points[0].y, kRow - 1);
+  freeMatrix(info->field, kRow);
+  freeMatrix(info->next, kFigureSize);
 }
 END_TEST
 
-// Test moving FSM
-START_TEST(test_moving_fsm) {
-  GameState *gs = init_game_state();
-  GameInfo *info = &gs->game_info;
-  CurrentFigurePoints figure = figure_spawn(info, 3, 0, 0, 0);  // I-tetromino
-  gs->current_figure = figure;
-  gs->figure_x = 3;
-  FsmState state = MOVING;
-  int figure_x = 3;
-  moving_fsm(info, &figure, &state, &figure_x, kRight);
-  ck_assert_int_eq(state, FALLING);
-  ck_assert_int_eq(figure_x, 4);
-  free_matrix(info->field, kRow);
-  free_matrix(info->next, kFigureSize);
+/**
+ * Tests the moving state of the finite state machine.
+ */
+START_TEST(testMovingFsm) {
+  GameState* gs = initGameState();
+  GameInfo* info = &gs->gameInfo;
+  ck_assert_ptr_nonnull(info->field);
+  ck_assert_ptr_nonnull(info->next);
+  TetrominoPoints tetromino = spawnTetromino(info, 3, 0, 0, 0);  // I-tetromino
+  gs->currentTetromino = tetromino;
+  gs->tetrominoX = 3;
+  FsmState state = kMoving;
+  int tetrominoX = 3;
+  movingTetrominoState(info, &tetromino, &state, &tetrominoX, kActionRight);
+  ck_assert_int_eq(state, kFalling);
+  ck_assert_int_eq(tetrominoX, 4);
+  freeMatrix(info->field, kRow);
+  freeMatrix(info->next, kFigureSize);
 }
 END_TEST
 
-// Test rotate figure
-START_TEST(test_rotate_figure) {
-  GameState *gs = init_game_state();
-  GameInfo *info = &gs->game_info;
-  gs->figure_type = 0;  // I-tetromino
-  gs->rotation_idx = 0;
-  gs->figure_x = 3;
-  gs->figure_y = 0;
-  CurrentFigurePoints figure = figure_spawn(info, 3, 0, 0, 0);
-  gs->current_figure = figure;
-  rotate_figure(info, &figure);
-  ck_assert_int_eq(gs->rotation_idx, 1);
-  ck_assert_int_eq(figure.figure_points[0].point_y, 0);
-  free_matrix(info->field, kRow);
-  free_matrix(info->next, kFigureSize);
+/**
+ * Tests rotating an I-tetromino.
+ */
+START_TEST(testRotateTetromino) {
+  GameState* gs = initGameState();
+  GameInfo* info = &gs->gameInfo;
+  ck_assert_ptr_nonnull(info->field);
+  ck_assert_ptr_nonnull(info->next);
+  gs->tetrominoType = 0;  // I-tetromino
+  gs->rotationIndex = 0;
+  gs->tetrominoX = 3;
+  gs->tetrominoY = 0;
+  TetrominoPoints tetromino = spawnTetromino(info, 3, 0, 0, 0);
+  gs->currentTetromino = tetromino;
+  rotateTetromino(info, &tetromino);
+  ck_assert_int_eq(gs->rotationIndex, 1);
+  ck_assert_int_eq(tetromino.points[0].y, 0);
+  freeMatrix(info->field, kRow);
+  freeMatrix(info->next, kFigureSize);
 }
 END_TEST
 
-// Test clearing FSM
-START_TEST(test_clearing_fsm) {
-  GameState *gs = init_game_state();
-  GameInfo *info = &gs->game_info;
-  for (int x = 0; x < kCol; x++) info->field[kRow - 1][x] = 1;
-  FsmState state = CLEARING;
-  clearing_fsm(info, &state);
-  ck_assert_int_eq(state, SPAWN);
-  ck_assert_int_eq(info->score, 100);
+/**
+ * Tests the clearing state of the finite state machine.
+ */
+START_TEST(testClearingFsm) {
+  GameState* gs = initGameState();
+  GameInfo* info = &gs->gameInfo;
+  ck_assert_ptr_nonnull(info->field);
+  ck_assert_ptr_nonnull(info->next);
+  for (int x = 0; x < kCol; ++x) {
+    info->field[kRow - 1][x] = 1;  // Fill bottom row
+  }
+  FsmState state = kClearing;
+  clearLinesState(info, &state);
+  ck_assert_int_eq(state, kSpawn);
+  ck_assert_int_eq(info->score, kScoreSingleLine);
   ck_assert_int_eq(info->level, 1);
-  free_matrix(info->field, kRow);
-  free_matrix(info->next, kFigureSize);
+  freeMatrix(info->field, kRow);
+  freeMatrix(info->next, kFigureSize);
 }
 END_TEST
 
-// Test game over FSM
-START_TEST(test_game_over_fsm) {
-  GameState *gs = init_game_state();
-  GameInfo *info = &gs->game_info;
+/**
+ * Tests the game over state of the finite state machine.
+ */
+START_TEST(testGameOverFsm) {
+  GameState* gs = initGameState();
+  GameInfo* info = &gs->gameInfo;
+  ck_assert_ptr_nonnull(info->field);
+  ck_assert_ptr_nonnull(info->next);
   info->score = 500;
   info->high_score = 200;
-  game_over_fsm(info);
-  ck_assert_int_eq(info->pause, -1);
-  ck_assert_int_eq(info->high_score, 200);
-  free_matrix(info->field, kRow);
-  free_matrix(info->next, kFigureSize);
+  gameOverState(info);
+  ck_assert(info->pause);
+  ck_assert_int_eq(info->high_score, 500);  // Updated high score
+  freeMatrix(info->field, kRow);
+  freeMatrix(info->next, kFigureSize);
 }
 END_TEST
 
-// Test user input for start, pause, terminate
-START_TEST(test_user_input) {
-  GameState *gs = init_game_state();
-  GameInfo *info = &gs->game_info;
-  user_input(kStart, false);
-  ck_assert_int_eq(gs->state, SPAWN);
-  user_input(kPause, false);
-  ck_assert_int_eq(info->pause, 1);
-  ck_assert_int_eq(gs->state, PAUSED);
-  user_input(kPause, false);
-  ck_assert_int_eq(gs->state, FALLING);
-  user_input(kTerminate, false);
-  ck_assert_int_eq(gs->state, GAME_OVER);
-  free_matrix(info->field, kRow);
-  free_matrix(info->next, kFigureSize);
+/**
+ * Tests user input for start, pause, and terminate actions.
+ */
+START_TEST(testUserInput) {
+  GameState* gs = initGameState();
+  GameInfo* info = &gs->gameInfo;
+  ck_assert_ptr_nonnull(info->field);
+  ck_assert_ptr_nonnull(info->next);
+  userInput(kActionStart, false);
+  ck_assert_int_eq(gs->state, kSpawn);
+  userInput(kActionPause, false);
+  ck_assert(info->pause);
+  ck_assert_int_eq(gs->state, kPaused);
+  userInput(kActionPause, false);
+  ck_assert_int_eq(gs->state, kFalling);
+  userInput(kActionTerminate, false);
+  ck_assert_int_eq(gs->state, kGameOver);
+  freeMatrix(info->field, kRow);
+  freeMatrix(info->next, kFigureSize);
 }
 END_TEST
 
-// Test user input for movement and rotation
-START_TEST(test_user_input_movement) {
-  // Test kRight: FALLING -> MOVING -> FALLING
-  GameState *gs = init_game_state();
-  GameInfo *info = &gs->game_info;
-  // Clear field explicitly
-  for (int i = 0; i < kRow; i++)
-    for (int j = 0; j < kCol; j++) info->field[i][j] = 0;
-  user_input(kStart, false);                            // START -> SPAWN
-  update_current_state();                               // SPAWN -> FALLING
-  gs->current_figure = figure_spawn(info, 4, 0, 0, 0);  // I-tetromino
-  gs->figure_x = 4;
-  gs->figure_y = 0;
-  gs->state = FALLING;
-  user_input(kRight, false);
-  ck_assert_int_eq(gs->state, MOVING);
-  ck_assert_int_eq(gs->move_direction, kRight);
-  update_current_state();  // Process MOVING
-  ck_assert_int_eq(gs->state, FALLING);
-  ck_assert_int_eq(gs->figure_x, 5);
-  free_matrix(info->field, kRow);
-  free_matrix(info->next, kFigureSize);
+/**
+ * Tests user input for movement and rotation actions.
+ */
+START_TEST(testUserInputMovement) {
+  // Test kActionRight: kFalling -> kMoving -> kFalling
+  GameState* gs = initGameState();
+  GameInfo* info = &gs->gameInfo;
+  ck_assert_ptr_nonnull(info->field);
+  ck_assert_ptr_nonnull(info->next);
+  for (int i = 0; i < kRow; ++i) {
+    for (int j = 0; j < kCol; ++j) {
+      info->field[i][j] = 0;  // Clear field
+    }
+  }
+  userInput(kActionStart, false);                        // kStart -> kSpawn
+  updateCurrentState();                                  // kSpawn -> kFalling
+  gs->currentTetromino = spawnTetromino(info, 4, 0, 0, 0);  // I-tetromino
+  gs->tetrominoX = 4;
+  gs->tetrominoY = 0;
+  gs->state = kFalling;
+  userInput(kActionRight, false);
+  ck_assert_int_eq(gs->state, kMoving);
+  ck_assert_int_eq(gs->moveDirection, kActionRight);
+  updateCurrentState();  // Process kMoving
+  ck_assert_int_eq(gs->state, kFalling);
+  ck_assert_int_eq(gs->tetrominoX, 5);
+  freeMatrix(info->field, kRow);
+  freeMatrix(info->next, kFigureSize);
 
-  // Test kLeft: FALLING -> MOVING -> FALLING
-  gs = init_game_state();
-  info = &gs->game_info;
-  for (int i = 0; i < kRow; i++)
-    for (int j = 0; j < kCol; j++) info->field[i][j] = 0;
-  user_input(kStart, false);
-  update_current_state();
-  gs->current_figure = figure_spawn(info, 4, 0, 0, 0);
-  gs->figure_x = 4;
-  gs->figure_y = 0;
-  gs->state = FALLING;
-  user_input(kLeft, false);
-  ck_assert_int_eq(gs->state, MOVING);
-  ck_assert_int_eq(gs->move_direction, kLeft);
-  update_current_state();
-  ck_assert_int_eq(gs->state, FALLING);
-  ck_assert_int_eq(gs->figure_x, 3);
-  free_matrix(info->field, kRow);
-  free_matrix(info->next, kFigureSize);
+  // Test kActionLeft: kFalling -> kMoving -> kFalling
+  gs = initGameState();
+  info = &gs->gameInfo;
+  ck_assert_ptr_nonnull(info->field);
+  ck_assert_ptr_nonnull(info->next);
+  for (int i = 0; i < kRow; ++i) {
+    for (int j = 0; j < kCol; ++j) {
+      info->field[i][j] = 0;
+    }
+  }
+  userInput(kActionStart, false);
+  updateCurrentState();
+  gs->currentTetromino = spawnTetromino(info, 4, 0, 0, 0);
+  gs->tetrominoX = 4;
+  gs->tetrominoY = 0;
+  gs->state = kFalling;
+  userInput(kActionLeft, false);
+  ck_assert_int_eq(gs->state, kMoving);
+  ck_assert_int_eq(gs->moveDirection, kActionLeft);
+  updateCurrentState();
+  ck_assert_int_eq(gs->state, kFalling);
+  ck_assert_int_eq(gs->tetrominoX, 3);
+  freeMatrix(info->field, kRow);
+  freeMatrix(info->next, kFigureSize);
 
-  // Test kDown (hold = false): Single step down
-  gs = init_game_state();
-  info = &gs->game_info;
-  for (int i = 0; i < kRow; i++)
-    for (int j = 0; j < kCol; j++) info->field[i][j] = 0;
-  user_input(kStart, false);
-  update_current_state();
-  gs->current_figure = figure_spawn(info, 4, 0, 0, 0);
-  gs->figure_x = 4;
-  gs->figure_y = 0;
-  gs->state = FALLING;
-  user_input(kDown, false);
-  ck_assert_int_eq(gs->state, LOCKING);
-  update_current_state();
-  ck_assert_int_eq(gs->figure_y, 0);
-  free_matrix(info->field, kRow);
-  free_matrix(info->next, kFigureSize);
+  // Test kActionDown (hold = false): Single step down
+  gs = initGameState();
+  info = &gs->gameInfo;
+  ck_assert_ptr_nonnull(info->field);
+  ck_assert_ptr_nonnull(info->next);
+  for (int i = 0; i < kRow; ++i) {
+    for (int j = 0; j < kCol; ++j) {
+      info->field[i][j] = 0;
+    }
+  }
+  userInput(kActionStart, false);
+  updateCurrentState();
+  gs->currentTetromino = spawnTetromino(info, 4, 0, 0, 0);
+  gs->tetrominoX = 4;
+  gs->tetrominoY = 0;
+  gs->state = kFalling;
+  userInput(kActionDown, false);
+  ck_assert_int_eq(gs->state, kLocking);  // Single step
+  updateCurrentState();
+  ck_assert_int_eq(gs->tetrominoY, 0);
+  freeMatrix(info->field, kRow);
+  freeMatrix(info->next, kFigureSize);
 
-  // Test kDown (hold = true): Drop to bottom
-  gs = init_game_state();
-  info = &gs->game_info;
-  for (int i = 0; i < kRow; i++)
-    for (int j = 0; j < kCol; j++) info->field[i][j] = 0;
-  user_input(kStart, false);
-  update_current_state();
-  gs->current_figure = figure_spawn(info, 4, 0, 0, 0);
-  gs->figure_x = 4;
-  gs->figure_y = 0;
-  gs->state = FALLING;
-  user_input(kDown, true);
-  ck_assert_int_eq(gs->state, LOCKING);
-  ck_assert_int_eq(gs->current_figure.figure_points[0].point_y, kRow - 1);
-  free_matrix(info->field, kRow);
-  free_matrix(info->next, kFigureSize);
+  // Test kActionDown (hold = true): Drop to bottom
+  gs = initGameState();
+  info = &gs->gameInfo;
+  ck_assert_ptr_nonnull(info->field);
+  ck_assert_ptr_nonnull(info->next);
+  for (int i = 0; i < kRow; ++i) {
+    for (int j = 0; j < kCol; ++j) {
+      info->field[i][j] = 0;
+    }
+  }
+  userInput(kActionStart, false);
+  updateCurrentState();
+  gs->currentTetromino = spawnTetromino(info, 4, 0, 0, 0);
+  gs->tetrominoX = 4;
+  gs->tetrominoY = 0;
+  gs->state = kFalling;
+  userInput(kActionDown, true);
+  ck_assert_int_eq(gs->state, kLocking);
+  ck_assert_int_eq(gs->currentTetromino.points[0].y, kRow - 1);
+  freeMatrix(info->field, kRow);
+  freeMatrix(info->next, kFigureSize);
 
-  // Test kAction: Rotate figure
-  gs = init_game_state();
-  info = &gs->game_info;
-  for (int i = 0; i < kRow; i++)
-    for (int j = 0; j < kCol; j++) info->field[i][j] = 0;
-  user_input(kStart, false);
-  update_current_state();
-  gs->current_figure =
-      figure_spawn(info, 4, 2, 0, 0);  // I-tetromino, moved down for rotation
-  gs->figure_x = 4;
-  gs->figure_y = 2;
-  gs->figure_type = 0;
-  gs->rotation_idx = 0;
-  gs->state = FALLING;
-  user_input(kAction, false);
-  ck_assert_int_eq(gs->state, FALLING);
-  ck_assert_int_eq(gs->rotation_idx, 1);
-  free_matrix(info->field, kRow);
-  free_matrix(info->next, kFigureSize);
+  // Test kActionRotate: Rotate figure
+  gs = initGameState();
+  info = &gs->gameInfo;
+  ck_assert_ptr_nonnull(info->field);
+  ck_assert_ptr_nonnull(info->next);
+  for (int i = 0; i < kRow; ++i) {
+    for (int j = 0; j < kCol; ++j) {
+      info->field[i][j] = 0;
+    }
+  }
+  userInput(kActionStart, false);
+  updateCurrentState();
+  gs->currentTetromino = spawnTetromino(info, 4, 2, 0, 0);  // I-tetromino
+  gs->tetrominoX = 4;
+  gs->tetrominoY = 2;
+  gs->tetrominoType = 0;
+  gs->rotationIndex = 0;
+  gs->state = kFalling;
+  userInput(kActionRotate, false);
+  ck_assert_int_eq(gs->state, kFalling);
+  ck_assert_int_eq(gs->rotationIndex, 1);
+  freeMatrix(info->field, kRow);
+  freeMatrix(info->next, kFigureSize);
 
   // Test ignoring actions when paused
-  gs = init_game_state();
-  info = &gs->game_info;
-  for (int i = 0; i < kRow; i++)
-    for (int j = 0; j < kCol; j++) info->field[i][j] = 0;
-  user_input(kStart, false);
-  update_current_state();
-  info->pause = 1;
-  gs->state = FALLING;
-  user_input(kRight, false);
-  ck_assert_int_eq(gs->state, FALLING);  // No change
-  user_input(kLeft, false);
-  ck_assert_int_eq(gs->state, FALLING);
-  user_input(kDown, true);
-  ck_assert_int_eq(gs->state, FALLING);
-  user_input(kAction, false);
-  ck_assert_int_eq(gs->state, FALLING);
-  free_matrix(info->field, kRow);
-  free_matrix(info->next, kFigureSize);
+  gs = initGameState();
+  info = &gs->gameInfo;
+  ck_assert_ptr_nonnull(info->field);
+  ck_assert_ptr_nonnull(info->next);
+  for (int i = 0; i < kRow; ++i) {
+    for (int j = 0; j < kCol; ++j) {
+      info->field[i][j] = 0;
+    }
+  }
+  userInput(kActionStart, false);
+  updateCurrentState();
+  info->pause = true;
+  gs->state = kFalling;
+  userInput(kActionRight, false);
+  ck_assert_int_eq(gs->state, kFalling);  // No change
+  userInput(kActionLeft, false);
+  ck_assert_int_eq(gs->state, kFalling);
+  userInput(kActionDown, true);
+  ck_assert_int_eq(gs->state, kFalling);
+  userInput(kActionRotate, false);
+  ck_assert_int_eq(gs->state, kFalling);
+  freeMatrix(info->field, kRow);
+  freeMatrix(info->next, kFigureSize);
 
-  // Test ignoring actions in START
-  gs = init_game_state();
-  info = &gs->game_info;
-  for (int i = 0; i < kRow; i++)
-    for (int j = 0; j < kCol; j++) info->field[i][j] = 0;
-  info->pause = 0;
-  gs->state = START;
-  user_input(kRight, false);
-  ck_assert_int_eq(gs->state, START);
-  user_input(kLeft, false);
-  ck_assert_int_eq(gs->state, START);
-  user_input(kDown, true);
-  ck_assert_int_eq(gs->state, START);
-  user_input(kAction, false);
-  ck_assert_int_eq(gs->state, START);
-  free_matrix(info->field, kRow);
-  free_matrix(info->next, kFigureSize);
+  // Test ignoring actions in kStart
+  gs = initGameState();
+  info = &gs->gameInfo;
+  ck_assert_ptr_nonnull(info->field);
+  ck_assert_ptr_nonnull(info->next);
+  for (int i = 0; i < kRow; ++i) {
+    for (int j = 0; j < kCol; ++j) {
+      info->field[i][j] = 0;
+    }
+  }
+  info->pause = false;
+  gs->state = kStart;
+  userInput(kActionRight, false);
+  ck_assert_int_eq(gs->state, kStart);
+  userInput(kActionLeft, false);
+  ck_assert_int_eq(gs->state, kStart);
+  userInput(kActionDown, true);
+  ck_assert_int_eq(gs->state, kStart);
+  userInput(kActionRotate, false);
+  ck_assert_int_eq(gs->state, kStart);
+  freeMatrix(info->field, kRow);
+  freeMatrix(info->next, kFigureSize);
 }
 END_TEST
 
-Suite *tetris_suite(void) {
-  Suite *s = suite_create("Tetris");
-  TCase *tc_core = tcase_create("Core");
+/**
+ * Creates the test suite for Tetris.
+ * @return Pointer to the test suite.
+ */
+Suite* tetrisSuite(void) {
+  Suite* s = suite_create("Tetris");
+  TCase* tc_core = tcase_create("Core");
   tcase_add_checked_fixture(tc_core, setup, NULL);
-  tcase_add_test(tc_core, test_alloc_matrix);
-  tcase_add_test(tc_core, test_free_matrix);
-  tcase_add_test(tc_core, test_figure_spawn);
-  tcase_add_test(tc_core, test_next_figure_generate);
-  tcase_add_test(tc_core, test_next_check);
-  tcase_add_test(tc_core, test_start_fsm);
-  tcase_add_test(tc_core, test_spawn_fsm);
-  tcase_add_test(tc_core, test_falling_fsm);
-  tcase_add_test(tc_core, test_moving_fsm);
-  tcase_add_test(tc_core, test_rotate_figure);
-  tcase_add_test(tc_core, test_clearing_fsm);
-  tcase_add_test(tc_core, test_game_over_fsm);
-  tcase_add_test(tc_core, test_user_input);
-  tcase_add_test(tc_core, test_user_input_movement);
+  tcase_add_test(tc_core, testAllocMatrix);
+  tcase_add_test(tc_core, testFreeMatrix);
+  tcase_add_test(tc_core, testSpawnTetromino);
+  tcase_add_test(tc_core, testGenerateNextTetromino);
+  tcase_add_test(tc_core, testHasNextTetromino);
+  tcase_add_test(tc_core, testStartFsm);
+  tcase_add_test(tc_core, testSpawnFsm);
+  tcase_add_test(tc_core, testFallingFsm);
+  tcase_add_test(tc_core, testMovingFsm);
+  tcase_add_test(tc_core, testRotateTetromino);
+  tcase_add_test(tc_core, testClearingFsm);
+  tcase_add_test(tc_core, testGameOverFsm);
+  tcase_add_test(tc_core, testUserInput);
+  tcase_add_test(tc_core, testUserInputMovement);
   suite_add_tcase(s, tc_core);
   return s;
 }
 
+/**
+ * Runs the Tetris test suite.
+ * @return 0 if all tests pass, 1 if any test fails.
+ */
 int main(void) {
-  Suite *s = tetris_suite();
-  SRunner *sr = srunner_create(s);
+  Suite* s = tetrisSuite();
+  SRunner* sr = srunner_create(s);
   srunner_run_all(sr, CK_NORMAL);
   int nf = srunner_ntests_failed(sr);
   srunner_free(sr);
