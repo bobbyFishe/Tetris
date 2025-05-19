@@ -13,7 +13,7 @@ enum {
   kCol = 10,               // Number of columns in the game field.
   kFigureSize = 4,         // Size of tetromino matrix.
   kFigurePoints = 4,       // Number of points in a tetromino.
-  kSpeed = 1000,           // Initial game speed (ms).
+  kSpeed = 800,            // Initial game speed (ms).
   kPointsPerLevel = 600,   // Points required to level up.
   kScoreSingleLine = 100,  // Points for clearing one line.
   kScoreDoubleLine = 300,  // Points for clearing two lines.
@@ -70,7 +70,7 @@ typedef struct {
   int high_score;  // High score.
   int level;       // Current level.
   int speed;       // Game speed (ms).
-  bool pause;      // Pause flag.
+  int pause;       // Pause flag.
 } GameInfo;
 
 // Internal game state.
@@ -231,4 +231,104 @@ void gameOverState(GameInfo* gameInfo);
  */
 void cleanupGame();
 
-#endif  // TETRIS_TETRIS_H_
+/**
+ * Clears the current tetromino from the game field.
+ * @param gameInfo Pointer to the game information structure.
+ * @param currentTetromino Pointer to the current tetromino’s points.
+ */
+void clearTetromino(GameInfo* gameInfo, TetrominoPoints* currentTetromino);
+
+/**
+ * Retrieves the rotation offsets for a given tetromino type.
+ * @param tetrominoType Type of tetromino (0–6 for I, L, O, T, S, Z, J).
+ * @param offsets Array to store the offset coordinates.
+ * @param numOffsets Pointer to store the number of offsets.
+ */
+void getRotationOffsets(int tetrominoType, int offsets[][2], int* numOffsets);
+
+/**
+ * Checks if a rotation is valid at the specified position.
+ * @param gameInfo Pointer to the game information structure.
+ * @param shape The tetromino shape matrix.
+ * @param newX X-coordinate of the tetromino’s top-left corner.
+ * @param newY Y-coordinate of the tetromino’s top-left corner.
+ * @return True if the rotation is valid, false otherwise.
+ */
+bool isValidRotation(GameInfo* gameInfo, const int shape[][kFigureSize],
+                     int newX, int newY);
+
+/**
+ * Applies a rotation to the current tetromino.
+ * @param gameInfo Pointer to the game information structure.
+ * @param currentTetromino Pointer to the current tetromino’s points.
+ * @param tetrominoType Type of tetromino (0–6 for I, L, O, T, S, Z, J).
+ * @param nextRotation The rotation index to apply.
+ * @param newX X-coordinate of the tetromino’s top-left corner.
+ * @param newY Y-coordinate of the tetromino’s top-left corner.
+ * @param gs Pointer to the game state.
+ */
+void applyRotation(GameInfo* gameInfo, TetrominoPoints* currentTetromino,
+                   int tetrominoType, int nextRotation, int newX, int newY,
+                   GameState* gs);
+
+/**
+ * Retrieves the lowest Y-coordinates for each column of the tetromino.
+ * @param currentTetromino Pointer to the current tetromino’s points.
+ * @param lowestY Array to store the lowest Y-coordinates for each column.
+ */
+void getLowestPoints(TetrominoPoints* currentTetromino, int lowestY[]);
+
+/**
+ * Checks if the tetromino can move down.
+ * @param gameInfo Pointer to the game information structure.
+ * @param lowestY Array of the lowest Y-coordinates for each column.
+ * @return True if the tetromino can move down, false otherwise.
+ */
+bool canMoveDown(GameInfo* gameInfo, int lowestY[]);
+
+/**
+ * Moves the tetromino down by one row.
+ * @param gameInfo Pointer to the game information structure.
+ * @param currentTetromino Pointer to the current tetromino’s points.
+ */
+void moveTetrominoDown(GameInfo* gameInfo, TetrominoPoints* currentTetromino);
+
+/**
+ * Updates the tetromino’s Y-coordinate in the game state.
+ * @param currentTetromino Pointer to the current tetromino’s points.
+ * @param gs Pointer to the game state.
+ */
+void updateTetrominoY(TetrominoPoints* currentTetromino, GameState* gs);
+
+/**
+ * Retrieves the extreme X-coordinates and point counts per row for sideways
+ * movement.
+ * @param currentTetromino Pointer to the current tetromino’s points.
+ * @param direction The movement direction (left or right).
+ * @param extremeX Array to store the extreme X-coordinates for each row.
+ * @param pointsPerY Array to store the number of points in each row.
+ */
+void getExtremePoints(TetrominoPoints* currentTetromino, UserAction direction,
+                      int extremeX[], int pointsPerY[]);
+
+/**
+ * Checks if the tetromino can move sideways.
+ * @param gameInfo Pointer to the game information structure.
+ * @param extremeX Array of extreme X-coordinates for each row.
+ * @param pointsPerY Array of point counts per row.
+ * @param deltaX The movement offset (-1 for left, 1 for right).
+ * @return True if the tetromino can move sideways, false otherwise.
+ */
+bool canMoveSideways(GameInfo* gameInfo, int extremeX[], int pointsPerY[],
+                     int deltaX);
+
+/**
+ * Shifts the tetromino sideways by the specified offset.
+ * @param gameInfo Pointer to the game information structure.
+ * @param currentTetromino Pointer to the current tetromino’s points.
+ * @param deltaX The movement offset (-1 for left, 1 for right).
+ */
+void shiftTetromino(GameInfo* gameInfo, TetrominoPoints* currentTetromino,
+                    int deltaX);
+
+#endif

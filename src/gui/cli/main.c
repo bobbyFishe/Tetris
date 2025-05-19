@@ -41,14 +41,11 @@ int runTetris() {
           break;
       }
     }
-
     GameInfo state = updateCurrentState();
-    if (state.pause && state.pause == true && state.score == 0) {
-      break;  // Exit on game over (pause set to true in gameOverState).
-    }
+    if (state.pause == -1) break;
     clear();
     renderField(state);
-    napms(state.speed / 2);
+    napms(state.speed);
   }
   endwin();
   return 0;

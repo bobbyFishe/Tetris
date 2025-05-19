@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall -Werror -Wextra -Ibrick_game/tetris -std=c11
+CFLAGS = -Wall -Werror -Wextra -Ibrick_game/tetris -std=c11 -g
 TEST_CFLAGS = $(CFLAGS) -fprofile-arcs -ftest-coverage
 LIBS = -lncurses
 TEST_LIBS = -lcheck -lm -lgcov -lsubunit
@@ -65,13 +65,18 @@ $(PATH_BACK)/tetris_test.o: $(PATH_BACK)/tetris.c $(HEADERS)
 gcov_report: test
 	lcov --capture --directory . --output-file coverage.info
 	lcov --extract coverage.info '*brick_game/tetris/tetris.c' -o coverage_tetris.info
-	lcov --remove coverage_tetris.info '*renderField*' -o coverage_tetris.info --ignore-errors unused
 	lcov --list coverage_tetris.info
 	genhtml coverage_tetris.info --output-directory coverage_report
 	xdg-open coverage_report/index.html
 	rm -f coverage.info coverage_tetris.info
+
+valgrind_tetris: $(PROGRAM)
+	echo "q" | valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes --verbose --log-file=valgrind_tetris_report.txt --error-exitcode=1 --suppressions=$(PATH_BACK)/ncurses.supp ./$(PROGRAM)
+	@echo "Valgrind report for tetris saved to valgrind_tetris_report.txt"
+
 clean:
 	rm -f $(PROGRAM) $(OBJECTS) brick_game/tetris/high_score.txt documentation.pdf tetris-1.0.tar.gz
 	rm -f $(PATH_TEST)/*.gcno $(PATH_TEST)/*.gcda $(PATH_TEST)/*.gcov $(PATH_TEST)/*.o *.info test_tetris
-	rm -f $(PATH_BACK)/*.gcno $(PATH_BACK)/*.gcda $(PATH_BACK)/*.gcov $(PATH_BACK)/*.o 
+	rm -f $(PATH_BACK)/*.gcno $(PATH_BACK)/*.gcda $(PATH_BACK)/*.gcov $(PATH_BACK)/*.o
+	rm -f valgrind_tetris_report.txt
 	rm -rf coverage_report
